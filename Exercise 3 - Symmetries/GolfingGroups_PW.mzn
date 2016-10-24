@@ -15,13 +15,13 @@ array[P,W] of var G: X;
 
 constraint forall(week in W, p in P)(X[p,week] in G);
 constraint forall(week in W, group in G)(sum(p in P)(bool2int(X[p,week] == group)) == sz);
-constraint forall(week,weekprime,weekdblprime in W, p,pprime in P where pprime < p)(
-                  X[p,week] != X[pprime,weekprime] \/ 
-                  X[p,weekprime] != X[pprime,weekdblprime] \/
-                  week == weekprime \/
-                  week == weekdblprime \/
-                  weekprime == weekdblprime
-                  );
+constraint forall(week in W)(
+                  forall(weekprime in W where weekprime != week)(
+                    forall(p,pprime in P where pprime < p)(
+                      not(X[p,week] == X[pprime,week] /\ X[p,weekprime] == X[pprime,weekprime])
+                    )
+                  )
+                 );
 
 solve satisfy;
 
