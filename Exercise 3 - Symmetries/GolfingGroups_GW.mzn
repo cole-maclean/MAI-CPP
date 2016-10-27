@@ -1,4 +1,4 @@
-/* This model takes as input the number of missions to complete, and the number of people availible to complete them, along with the upper and lower bound for both # of people in each mission plus number of missions each person can participate it. A further constraint is that for any pair of missions, at least one person must participate in both.
+/* This model takes as input information about scheduling a golf schedule. Inputs in include the number of groups of golfers to make, the size of each group and the number of weeks the schedule will be made for. The schedule is constrained to ensure all players play each week, and 2 players only play in the same group together a maximum of 1 time. For this model, we build a 2-D array of [group, week] = person as the objective variable.
 */
 include "globals.mzn";
 int: gr; %number of groups
@@ -10,19 +10,34 @@ set of int: P=1..n;
 int: we; % number of weeks
 set of int: W=1..we;
 
-array[G,W] of var set of P: X;
+array[G,W] of var set of P: X; %2-D array of [group, week] = person
+array[int] of var set of int: week1 =  [X[group,1] | group in G];
+array[int] of var set of int: group1 =  [X[1,week] | week in W];
 
-constraint forall(week in W,g,gprime in G where gprime < g)(card(X[g,week] intersect X[gprime,week]) == 0);
-/*constraint  forall(k,kprime in W,
-                   i,iprime in G,
-                   j,jprime, jprimeiprime in S)
-                   (X[i,j,k] != X[iprime,jprime,kprime] \/ X[i,jprime,k] != X[iprime,jprimeiprime,kprime] \/ k == kprime);
-*/
+constraint forall(week in W,g in G)(card(X[g,week]) == sz); %size of each group needs to equal input parameter sz
+constraint forall(week in W)( %ensure every player plays each week (ie. no player plays in 2 groups, so interesect of any 2 groups = 0)
+                  forall(g,gprime in G where gprime < g)(
+                    card(X[g,week] intersect X[gprime,week]) == 0
+                   )
+                  );
+constraint forall(week,weekprime in W where weekprime < week)( %ensure 2 players play in the same group a maximum of 1 time
+                  forall(g in G)(
+                    card(X[g,week] intersect X[g,weekprime]) <= 1
+                   )
+                  );
+                  
+constraint forall(person in P where person != n)(value_precede(person,person+1,week1));                
+constraint forall(week in W where week != we)(value_precede(week*sz,(week+1)*sz,group1));
+constraint forall(week in W where week != 1)(
+                  forall(group in G)(card(X[group,week] intersect {group}) = 1)
+                  );
+constraint forall(week in W)(
+                    card(X[1,week] intersect {week*2}) = 1
+                  );
+
 solve satisfy;
 
-output [ show(X[group,slot,week]) ++ " " ++
-if slot mod sz == 0 then "\n" else " " endif ++ 
-if group*slot mod n == 0 then "\n\n" else "" endif
-| week in W,group in G, slot in S]
-/*Solver Trialing -
-The default Gecode solver performs comparatively poorly in solving this problem, taking substantial amounts of time to find a solution for relatively small planning configurations (anything >5 missions). The G12 lazy solving performs remarkably well, finding solutions near instantly for relatively large planning configurations (10 missions)
+output [show(X[group,week]) ++ "\n" ++
+if group mod gr  == 0 then "\n\n" else "" endif
+| week in W, group in G]
+/*Symmetry Discussion

@@ -1,4 +1,4 @@
-/* This model takes as input the number of missions to complete, and the number of people availible to complete them, along with the upper and lower bound for both # of people in each mission plus number of missions each person can participate it. A further constraint is that for any pair of missions, at least one person must participate in both.
+/* This model takes as input information about scheduling a golf schedule. Inputs in include the number of groups of golfers to make, the size of each group and the number of weeks the schedule will be made for. The schedule is constrained to ensure all players play each week, and 2 players only play in the same group together a maximum of 1 time. For this model, we build a 3-D array of [group,slot, week] = person as the objective variable.
 */
 include "globals.mzn";
 int: gr; %number of groups
@@ -10,19 +10,52 @@ set of int: P=1..n;
 int: we; % number of weeks
 set of int: W=1..we;
 
-array[G,S,W] of var P: X;
+array[G,S,W] of var P: X; %3-D array of [group,slot, week] = person
 
-constraint forall(week in W)(alldifferent([ X[i,j,week] | i in G,j in S]) );
-constraint  forall(k,kprime in W,
-                   i,iprime in G,
-                   j,jprime, jprimeiprime in S)
-                   (X[i,j,k] != X[iprime,jprime,kprime] \/ X[i,jprime,k] != X[iprime,jprimeiprime,kprime] \/ k == kprime);
+constraint forall(week in W)(alldifferent([ X[i,j,week] | i in G,j in S]) ); %ensure everyone plays each weel
+constraint  forall(k,kprime in W where k < kprime)(
+                    forall(i,iprime in G)(
+                      forall(j,jprime in S where j !=jprime)(
+                        forall(jdblprime,jidblprime in S where jdblprime != jidblprime)(
+                            X[i,j,k] != X[iprime,jdblprime,kprime] \/ X[i,jprime,k] != X[iprime,jidblprime,kprime]
+                         )
+                       )
+                      )
+                    );
+                   
+%Symmetry Breaking
 
+constraint forall(group in G)(
+               forall(slot in S where slot < sz)(
+                 X[group,slot,1] < X[group,slot+1,1] /\  if group+1 in G then X[group,gr,1] < X[group+1,1,1] else true endif
+               )
+             );           
+constraint forall(week in W)(
+            forall(group in G)(
+              forall(slot in S where slot < sz)(
+                 X[group,slot,week] < X[group,slot+1,week]
+                )
+              )
+             );        
+constraint  forall(week in W)(
+              forall(group in G where group < gr)(
+                 X[group,1,week] < X[group+1,1,week]
+              )
+             );         
+constraint  forall(week in W where week < we)(
+                  X[1,2,week] < X[1,2,week+1]
+             );
+                     
 solve satisfy;
-
-output [ show(X[group,slot,week]) ++ " " ++
+output [show(X[group,slot,week]) ++ " " ++
 if slot mod sz == 0 then "\n" else " " endif ++ 
+if group*slot mod n == 0  then "Week" ++ show(week) ++ "\n" else "" endif ++
 if group*slot mod n == 0 then "\n\n" else "" endif
 | week in W,group in G, slot in S]
-/*Solver Trialing -
-The default Gecode solver performs comparatively poorly in solving this problem, taking substantial amounts of time to find a solution for relatively small planning configurations (anything >5 missions). The G12 lazy solving performs remarkably well, finding solutions near instantly for relatively large planning configurations (10 missions)
+/*Symmetry Discussion
+Unbroken symmetry solutions: 
+n! · w! · w · (g!)· w · g · (s!) which for the 3x3x3 case is 2,116,316,160 possible solutions
+
+Player and Group Symmetery Breaking = 2,592 possible solutions
+
+All Broken Symmetries = 72 possible solutions
