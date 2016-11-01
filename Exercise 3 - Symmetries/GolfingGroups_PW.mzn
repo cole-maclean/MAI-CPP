@@ -28,11 +28,13 @@ constraint forall(week in W)(%ensure no 2 players play in the same group more th
                   X[person,1] < person/sz+1
                   );         
 */
-        
+
+%Order increasing group assignment for each sz people      
 constraint forall(person in P where person != n)(
   if person == 1 then X[person,1] = 1 elseif person mod sz == 1 then X[person,1] = X[person-1,1]+1 else X[person,1] = X[person-1,1] endif
 );
 
+%Order increasing first member of first group over weeks
 constraint  forall(week in W where week != we)(
               forall(person in P)(
                   if person mod sz == 0 then X[person,week] <= X[person,week+1] else true endif
@@ -45,4 +47,3 @@ solve satisfy;
 output [ show(X[player,week]) ++ "\n" ++
 if player mod n == 0 then "\n\n" else "" endif
 | week in W,player in P]
-/*Symmetry Discussion

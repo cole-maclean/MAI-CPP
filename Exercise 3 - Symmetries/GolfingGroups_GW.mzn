@@ -25,12 +25,13 @@ constraint forall(week,weekprime in W where weekprime < week)( %ensure 2 players
                     card(X[g,week] intersect X[g,weekprime]) <= 1
                    )
                   );
-                  
-constraint forall(person in P where person != n)(value_precede(person,person+1,week1));                
-constraint forall(week in W where week != we)(value_precede(week*sz,(week+1)*sz,group1));
+%Order increasing members of first week         
+constraint forall(person in P where person != n)(value_precede(person,person+1,week1));   
+%Order increasing first member of each group in a week          
 constraint forall(week in W where week != 1)(
                   forall(group in G)(card(X[group,week] intersect {group}) = 1)
                   );
+%Order increasing 2nd member of first group each week
 constraint forall(week in W)(
                     card(X[1,week] intersect {week*2}) = 1
                   );
